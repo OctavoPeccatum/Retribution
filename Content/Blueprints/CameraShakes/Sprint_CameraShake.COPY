@@ -1,0 +1,21 @@
+Begin Object Class=/Script/Engine.Blueprint Name="Sprint_CameraShake"
+   Begin Object Class=/Script/Engine.EdGraph Name="EventGraph"
+   End Object
+   Begin Object Class=/Script/UnrealEd.SceneThumbnailInfo Name="SceneThumbnailInfo_0"
+   End Object
+   Begin Object Name="EventGraph"
+      Schema=Class'"/Script/BlueprintGraph.EdGraphSchema_K2"'
+      bAllowDeletion=False
+      GraphGuid=8D485F474B08EFA7A1D2BEAB13FC49B2
+   End Object
+   Begin Object Name="SceneThumbnailInfo_0"
+   End Object
+   ParentClass=Class'"/Script/GameplayCameras.MatineeCameraShake"'
+   BlueprintSystemVersion=2
+   UbergraphPages(0)=EdGraph'"EventGraph"'
+   LastEditedDocuments(0)=(EditedObjectPath=/Game/AdvancedLocomotionV4/Blueprints/Misc/Sprint_CameraShake.Sprint_CameraShake:EventGraph,SavedZoomAmount=1.000000)
+   ThumbnailInfo=SceneThumbnailInfo'"SceneThumbnailInfo_0"'
+   GeneratedClass=BlueprintGeneratedClass'"Sprint_CameraShake_C"'
+   bLegacyNeedToPurgeSkelRefs=False
+   BlueprintGuid=10C6178244BAA42437A8799AF1897CCE
+End Object
