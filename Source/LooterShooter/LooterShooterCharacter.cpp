@@ -17,6 +17,7 @@
 #include "UserInterfaces/LooterHUD.h"
 #include "Components/ParkourMovementComponent.h"
 #include "Components/HealthComponent.h"
+#include "Components/WeaponComponent.h"
 #include "Engine/DamageEvents.h"
 
 DEFINE_LOG_CATEGORY_STATIC(CharacterLog, All, All);
@@ -54,6 +55,7 @@ ALooterShooterCharacter::ALooterShooterCharacter(const FObjectInitializer& ObjIn
 	CameraBoom->bUsePawnControlRotation = true; // Rotate the arm based on the controller
 
 	HealthComponent = CreateDefaultSubobject<UHealthComponent>("HealthComponent");
+	WeaponComponent = CreateDefaultSubobject<UWeaponComponent>("WeaponComponent");
 	
 	PlayerInventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("PlayerInventory"));
 	PlayerInventory->SetSlotCapacity(20);
@@ -85,6 +87,7 @@ void ALooterShooterCharacter::BeginPlay()
 
 	check(HealthComponent);
 	check(GetCharacterMovement());
+	check(WeaponComponent);
 
 	OnHealthChanged(HealthComponent->GetHealth());
 	HealthComponent->OnDeath.AddUObject(this, &ALooterShooterCharacter::OnDeath);
@@ -139,6 +142,9 @@ void ALooterShooterCharacter::SetupPlayerInputComponent(class UInputComponent* P
 
 		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &ALooterShooterCharacter::BeginInteract);
 		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Completed, this, &ALooterShooterCharacter::EndInteract);
+
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Started, WeaponComponent, &UWeaponComponent::Fire);
+		//EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Completed, this, &ALooterShooterCharacter::StopAiming);
 
 		EnhancedInputComponent->BindAction(AimingAction, ETriggerEvent::Started, this, &ALooterShooterCharacter::Aim);
 		EnhancedInputComponent->BindAction(AimingAction, ETriggerEvent::Completed, this, &ALooterShooterCharacter::StopAiming);
@@ -422,6 +428,7 @@ void ALooterShooterCharacter::OnDeath()
 	GetCharacterMovement()->DisableMovement();
 
 	SetLifeSpan(5.0f);
+	GetCapsuleComponent()->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 }
 
 void ALooterShooterCharacter::OnHealthChanged(float Health)
@@ -439,6 +446,8 @@ void ALooterShooterCharacter::OnGroundLanded(const FHitResult& Hit)
 	UE_LOG(CharacterLog, Display, TEXT("FinalDamage: %f"), FinalDamage);
 	TakeDamage(FinalDamage, FDamageEvent{}, nullptr, nullptr);
 }
+
+
 
 
 

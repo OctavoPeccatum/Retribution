@@ -14,6 +14,7 @@ class ALooterHUD;
 class UInventoryComponent;
 class UQuestComponent;
 class UHealthComponent;
+class UWeaponComponent;
 
 USTRUCT()
 struct FInteractionData
@@ -92,6 +93,9 @@ protected:
 	class UInputAction* InteractAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	class UInputAction* FireAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	class UInputAction* ToggleInventoryAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
@@ -112,13 +116,16 @@ protected:
 	TScriptInterface<IInteractionInterface> TargetInteractable;
 
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Character | Health")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Character | Components")
 	UHealthComponent* HealthComponent;
 
-	UPROPERTY(VisibleAnywhere, Category = "Character | Inventory")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Character | Components")
+	UWeaponComponent* WeaponComponent;
+
+	UPROPERTY(VisibleAnywhere, Category = "Character | Components")
 	UInventoryComponent* PlayerInventory;
 
-	UPROPERTY(VisibleAnywhere, Category = "Character | Quest Component")
+	UPROPERTY(VisibleAnywhere, Category = "Character | Components")
 	UQuestComponent* PlayerQuestComponent;
 
 	float InteractionCheckFrequency;
