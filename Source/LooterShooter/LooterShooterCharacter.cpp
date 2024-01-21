@@ -9,19 +9,23 @@
 #include "Components/QuestComponent.h"
 #include "Items/ItemBase.h"
 #include "Items/Pickup.h"
-#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "DrawDebugHelpers.h"
 #include "UserInterfaces/LooterHUD.h"
+#include "Components/ParkourMovementComponent.h"
+#include "Components/HealthComponent.h"
+#include "Engine/DamageEvents.h"
 
+DEFINE_LOG_CATEGORY_STATIC(CharacterLog, All, All);
 
 //////////////////////////////////////////////////////////////////////////
 // ALooterShooterCharacter
 
-ALooterShooterCharacter::ALooterShooterCharacter()
+ALooterShooterCharacter::ALooterShooterCharacter(const FObjectInitializer& ObjInit) 
+	: Super(ObjInit.SetDefaultSubobjectClass<UParkourMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
@@ -48,6 +52,8 @@ ALooterShooterCharacter::ALooterShooterCharacter()
 	CameraBoom->SetupAttachment(RootComponent);
 	CameraBoom->TargetArmLength = 150.0f; // The camera follows at this distance behind the character	
 	CameraBoom->bUsePawnControlRotation = true; // Rotate the arm based on the controller
+
+	HealthComponent = CreateDefaultSubobject<UHealthComponent>("HealthComponent");
 	
 	PlayerInventory = CreateDefaultSubobject<UInventoryComponent>(TEXT("PlayerInventory"));
 	PlayerInventory->SetSlotCapacity(20);
@@ -76,6 +82,15 @@ void ALooterShooterCharacter::BeginPlay()
 {
 	// Call the base class  
 	Super::BeginPlay();
+
+	check(HealthComponent);
+	check(GetCharacterMovement());
+
+	OnHealthChanged(HealthComponent->GetHealth());
+	HealthComponent->OnDeath.AddUObject(this, &ALooterShooterCharacter::OnDeath);
+	HealthComponent->OnHealthChanged.AddUObject(this, &ALooterShooterCharacter::OnHealthChanged);
+
+	LandedDelegate.AddDynamic(this, &ALooterShooterCharacter::OnGroundLanded);
 
 	//Add Input Mapping Context
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
@@ -165,10 +180,8 @@ void ALooterShooterCharacter::PerformInteractionCheck()
 					return;
 				}
 
-				if (TraceHit.GetActor() == InteractionData.CurrentInteractable)
-				{
-					return;
-				}
+				if (TraceHit.GetActor() == InteractionData.CurrentInteractable) return;
+				
 			}
 		}
 
@@ -401,6 +414,32 @@ void ALooterShooterCharacter::Look(const FInputActionValue& Value)
 		AddControllerPitchInput(LookAxisVector.Y);
 	}
 }
+
+void ALooterShooterCharacter::OnDeath()
+{
+	UE_LOG(CharacterLog, Display, TEXT("Player %s is dead"), *GetName());
+
+	GetCharacterMovement()->DisableMovement();
+
+	SetLifeSpan(5.0f);
+}
+
+void ALooterShooterCharacter::OnHealthChanged(float Health)
+{
+
+}
+
+void ALooterShooterCharacter::OnGroundLanded(const FHitResult& Hit)
+{
+	const auto FallVelocityZ = -GetVelocity().Z;
+
+	if (FallVelocityZ < LandedDamageVelocity.X) return;
+
+	const auto FinalDamage = FMath::GetMappedRangeValueClamped(LandedDamageVelocity, LandedDamage, FallVelocityZ);
+	UE_LOG(CharacterLog, Display, TEXT("FinalDamage: %f"), FinalDamage);
+	TakeDamage(FinalDamage, FDamageEvent{}, nullptr, nullptr);
+}
+
 
 
 

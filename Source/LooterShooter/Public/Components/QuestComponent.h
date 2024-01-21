@@ -7,6 +7,7 @@
 #include "QuestComponent.generated.h"
 
 class UQuestBase;
+class UDataTable;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class LOOTERSHOOTER_API UQuestComponent : public UActorComponent

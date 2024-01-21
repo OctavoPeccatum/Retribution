@@ -13,6 +13,7 @@ class UItemBase;
 class ALooterHUD;
 class UInventoryComponent;
 class UQuestComponent;
+class UHealthComponent;
 
 USTRUCT()
 struct FInteractionData
@@ -46,7 +47,7 @@ public:
 	/////////////////////////////////////////////////////////////////////////////////////////////
 	// FUNCTIONS
 
-	ALooterShooterCharacter();
+	ALooterShooterCharacter(const FObjectInitializer& ObjInit);
 	
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
@@ -110,6 +111,10 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "Character | Interaction")
 	TScriptInterface<IInteractionInterface> TargetInteractable;
 
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Character | Health")
+	UHealthComponent* HealthComponent;
+
 	UPROPERTY(VisibleAnywhere, Category = "Character | Inventory")
 	UInventoryComponent* PlayerInventory;
 
@@ -130,6 +135,12 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Caharacter | Aim Timeline")
 	UCurveFloat* AimingCameraCurve;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Caharacter | Landed")
+	FVector2D LandedDamageVelocity = FVector2D(900.0f, 1200.0f);
+
+	UPROPERTY(EditDefaultsOnly, Category = "Caharacter | Landed")
+	FVector2D LandedDamage = FVector2D(10.0f, 100.0f);
 
 	/////////////////////////////////////////////////////////////////////////////////////////////
 	// FUNCTIONS
@@ -165,5 +176,13 @@ protected:
 	virtual void BeginPlay();
 
 	virtual void Tick(float DeltaSeconds) override;
+
+private:
+
+	void OnDeath();
+	void OnHealthChanged(float Health);
+
+	UFUNCTION()
+	void OnGroundLanded(const FHitResult& Hit);
 };
 

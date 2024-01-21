@@ -19,5 +19,16 @@ public class LooterShooter : ModuleRules
 			"Slate", 
 			"UMG"
 		});
+
+		PublicIncludePaths.AddRange(new string[]
+		{   "LooterShooter/Public/Components",
+			"LooterShooter/Public/Controllers",
+			"LooterShooter/Public/Data",
+			"LooterShooter/Public/Interfaces",
+			"LooterShooter/Public/Items",
+			"LooterShooter/Public/Quests",
+			"LooterShooter/Public/UserInterfaces",
+            "LooterShooter/Public/Dev"
+        });
 	}
 }
