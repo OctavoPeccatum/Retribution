@@ -4,6 +4,7 @@
 #include "Weapon/BaseWeapon.h"
 #include "Components/StaticMeshComponent.h"
 #include "DrawDebugHelpers.h"
+#include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/Controller.h"
 #include "Engine/DamageEvents.h"
@@ -22,33 +23,24 @@ void ABaseWeapon::BeginPlay()
 	Super::BeginPlay();
 
 	check(WeaponMesh);
+	checkf(DefaultsAmmo.Bullets > 0, TEXT("Bullets count couldn't be less or equal zero"));
+	checkf(DefaultsAmmo.Clips > 0, TEXT("Clips count couldn't be less or equal zero"));
+	CurrentAmmo = DefaultsAmmo;
 }
 
 void ABaseWeapon::MakeShot()
 {
-	if (!GetWorld()) return;
 
-	FVector TraceStart, TraceEnd;
-	if (!GetTraceData(TraceStart, TraceEnd)) return;
-
-	FHitResult HitResult;
-	MakeHit(HitResult, TraceStart, TraceEnd);
-
-	if (HitResult.bBlockingHit)
-	{
-		MakeDamage(HitResult);
-		DrawDebugLine(GetWorld(), GetMuzzleWorldLocation(), HitResult.ImpactPoint, FColor::Red, false, 3.0f, 0, 3.0f);
-		DrawDebugSphere(GetWorld(), HitResult.ImpactPoint, 10.0f, 24, FColor::Red, false, 5.0f);
-	}
-	else
-	{
-		DrawDebugLine(GetWorld(), GetMuzzleWorldLocation(), TraceEnd, FColor::Red, false, 3.0f, 0, 3.0f);
-	}
 }
 
-void ABaseWeapon::Fire()
+void ABaseWeapon::StartFire()
 {
-	MakeShot();
+
+}
+
+void ABaseWeapon::StopFire()
+{
+
 }
 
 APlayerController* ABaseWeapon::GetPlayerController() const
@@ -100,5 +92,57 @@ void ABaseWeapon::MakeDamage(const FHitResult& HitResult)
 	if (!DamagedActor) return;
 
 	DamagedActor->TakeDamage(DamageAmount, FDamageEvent(), GetPlayerController(), this);
+}
+
+void ABaseWeapon::DecreaseAmmo()
+{
+	if (CurrentAmmo.Bullets == 0)
+	{
+		UE_LOG(BaseWeaponLog, Warning, TEXT("Clip is empty!"));
+		return;
+	}
+
+	CurrentAmmo.Bullets--;
+	LogAmmo();
+
+	if (IsClipEmpty() && !IsAmmoEmpty())
+	{
+		StopFire();
+		OnClipEmpty.Broadcast();
+	}
+}
+
+bool ABaseWeapon::IsAmmoEmpty()
+{
+	return CurrentAmmo.Clips == 0 && IsClipEmpty();
+}
+
+bool ABaseWeapon::IsClipEmpty()
+{
+	return CurrentAmmo.Bullets == 0;
+}
+
+void ABaseWeapon::ChangeClip()
+{
+	if (CurrentAmmo.Clips == 0)
+	{
+		UE_LOG(BaseWeaponLog, Warning, TEXT("No more clips!"));
+		return;
+	}
+	CurrentAmmo.Clips--;
+	CurrentAmmo.Bullets = DefaultsAmmo.Bullets;
+	UE_LOG(BaseWeaponLog, Display, TEXT("---------Change Clip!-----------"));
+}
+
+bool ABaseWeapon::CanReload() const
+{
+	return CurrentAmmo.Bullets < DefaultsAmmo.Bullets && CurrentAmmo.Clips > 0;
+}
+
+void ABaseWeapon::LogAmmo()
+{
+	FString AmmoInfo = "Ammo: " + FString::FromInt(CurrentAmmo.Bullets) + " / ";
+	AmmoInfo += FString::FromInt(CurrentAmmo.Clips);
+	UE_LOG(BaseWeaponLog, Display, TEXT("%s"), *AmmoInfo);
 }
 

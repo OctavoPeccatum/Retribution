@@ -12,6 +12,7 @@ class UInteractionWidget;
 class UMainMenu;
 class UQuestGiveWidget;
 class UQuestLogWidget;
+class UPlayerHUDWidget;
 
 UCLASS()
 class LOOTERSHOOTER_API ALooterHUD : public AHUD
@@ -34,6 +35,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Widgets")
 	TSubclassOf<UQuestLogWidget> QuestLogWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Widgets")
+	TSubclassOf<UPlayerHUDWidget> PlayerHUDWidgetClass;
 
 	bool bIsMenuVisible;
 
@@ -78,6 +82,8 @@ protected:
 	UPROPERTY()
 	UQuestLogWidget* QuestLogWidget;
 
+	UPROPERTY()
+	UPlayerHUDWidget* PlayerHUDWidget;
 
 	/////////////////////////////////////////////////////////////////////////////////////////////
 	// FUNCTIONS

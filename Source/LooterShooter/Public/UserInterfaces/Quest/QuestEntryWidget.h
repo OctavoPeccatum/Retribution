@@ -11,6 +11,7 @@ class UTextBlock;
 class UCheckBox;
 class UQuestLogWidget;
 class UDataTable;
+class UQuestBase;
 /**
  * 
  */

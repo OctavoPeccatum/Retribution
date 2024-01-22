@@ -4,10 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "LooterShooterCoreTypes.h"
 #include "HealthComponent.generated.h"
-
-DECLARE_MULTICAST_DELEGATE(FOnDeath)
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnHealthChanged, float)
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class LOOTERSHOOTER_API UHealthComponent : public UActorComponent
@@ -23,6 +21,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	bool IsDead() const { return FMath::IsNearlyZero(Health); }
+
+	UFUNCTION(BlueprintCallable)
+	float GetHealthPercent() const { return Health / MaxHealth; }
 
 	FOnDeath OnDeath;
 	FOnHealthChanged OnHealthChanged;

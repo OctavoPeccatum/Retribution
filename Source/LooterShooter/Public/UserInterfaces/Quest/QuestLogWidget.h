@@ -14,6 +14,9 @@ class UQuestObjective;
 class UVerticalBox;
 class UScrollBox;
 class UWidgetSwitcher;
+class UDataTable;
+class UQuestBase;
+
 /**
  * 
  */

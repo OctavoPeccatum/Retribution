@@ -143,8 +143,11 @@ void ALooterShooterCharacter::SetupPlayerInputComponent(class UInputComponent* P
 		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &ALooterShooterCharacter::BeginInteract);
 		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Completed, this, &ALooterShooterCharacter::EndInteract);
 
-		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Started, WeaponComponent, &UWeaponComponent::Fire);
-		//EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Completed, this, &ALooterShooterCharacter::StopAiming);
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Started, WeaponComponent, &UWeaponComponent::StartFire);
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Completed, WeaponComponent, &UWeaponComponent::StopFire);
+
+		EnhancedInputComponent->BindAction(NextWeaponAction, ETriggerEvent::Started, WeaponComponent, &UWeaponComponent::NextWeapon);
+		EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, WeaponComponent, &UWeaponComponent::Reload);
 
 		EnhancedInputComponent->BindAction(AimingAction, ETriggerEvent::Started, this, &ALooterShooterCharacter::Aim);
 		EnhancedInputComponent->BindAction(AimingAction, ETriggerEvent::Completed, this, &ALooterShooterCharacter::StopAiming);
@@ -429,6 +432,7 @@ void ALooterShooterCharacter::OnDeath()
 
 	SetLifeSpan(5.0f);
 	GetCapsuleComponent()->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+	WeaponComponent->StopFire();
 }
 
 void ALooterShooterCharacter::OnHealthChanged(float Health)

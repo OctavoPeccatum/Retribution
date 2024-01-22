@@ -6,6 +6,7 @@
 #include "UserInterfaces/Quest/QuestGiveWidget.h"
 #include "LooterShooter/Public/InteractionWidget.h"
 #include "UserInterfaces/Quest/QuestLogWidget.h"
+#include "UserInterfaces/PlayerHUDWidget.h"
 
 ALooterHUD::ALooterHUD()
 {
@@ -14,6 +15,13 @@ ALooterHUD::ALooterHUD()
 void ALooterHUD::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (PlayerHUDWidgetClass)
+	{
+		PlayerHUDWidget = CreateWidget<UPlayerHUDWidget>(GetWorld(), PlayerHUDWidgetClass);
+		PlayerHUDWidget->AddToViewport(-1);
+		PlayerHUDWidget->SetVisibility(ESlateVisibility::Visible);
+	}
 
 	if (MainMenuClass)
 	{

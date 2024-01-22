@@ -29,7 +29,8 @@ public class LooterShooter : ModuleRules
 			"LooterShooter/Public/Quests",
 			"LooterShooter/Public/UserInterfaces",
             "LooterShooter/Public/Dev",
-            "LooterShooter/Public/Weapon"
+            "LooterShooter/Public/Weapon",
+            "LooterShooter/Public/Animations"
         });
 	}
 }

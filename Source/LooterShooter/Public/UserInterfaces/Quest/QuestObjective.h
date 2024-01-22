@@ -9,6 +9,7 @@
 class UTextBlock;
 class UCheckBox;
 struct FObjectiveDetails;
+class UQuestBase;
 /**
  * 
  */

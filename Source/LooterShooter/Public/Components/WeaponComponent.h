@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "LooterShooterCoreTypes.h"
 #include "WeaponComponent.generated.h"
 
 class ABaseWeapon;
@@ -17,22 +18,63 @@ public:
 	// Sets default values for this component's properties
 	UWeaponComponent();
 
-	void Fire();
+	void StartFire();
+	void StopFire();
+
+	void NextWeapon();
+	void Reload();
 
 protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
-	TSubclassOf<ABaseWeapon> WeaponClass;
+	TArray<FWeaponData> WeaponData;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
-	FName WeaponAttachPointName = "WeaponSocket";
+	FName WeaponEquipSocketName = "WeaponSocket";
+
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	FName WeaponArmorySocketName = "ArmorySocket";
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UAnimMontage* EquipAnimMontage;
 
 	// Called when the game starts
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
 	UPROPERTY()
 	ABaseWeapon* CurrentWeapon = nullptr;
 
-	void SpawnWeapon();
+	UPROPERTY()
+	ABaseWeapon* LastWeapon = nullptr;
+
+	UPROPERTY()
+	TArray<ABaseWeapon*> Weapons;
+
+	UPROPERTY()
+	UAnimMontage* CurrentReloadAnimMontage = nullptr;
+
+	int32 CurrentWeaponIndex = 0;
+	bool EquipAnimInProgress = false;
+	bool ReloadAnimInProgress = false;
+
+	void InitAnimations();
+	void SpawnWeapons();
+	void AttachWeaponToSocket(ABaseWeapon* Weapon, USceneComponent* SceneComponent, FName& SocketName);
+	void EquipWeapon(int32 WeaponIndex);
+
+	void PlayAnimMontage(UAnimMontage* Animation);
+
+	void OnEquipFinished(USkeletalMeshComponent* MeshComp);
+	void OnReloadFinished(USkeletalMeshComponent* MeshComp);
+	void OnChangeWeapon(USkeletalMeshComponent* MeshComp);
+
+	bool CanFire() const;
+	bool CanEquip() const;
+	bool CanReload() const;
+
+	void OnEmptyClip();
+	void ChangeClip();
+
 };
