@@ -26,6 +26,9 @@ public:
 	void ChangeClip();
 	bool CanReload() const;
 
+	FWeaponUIData GetUIData() const { return UIData; }
+	FAmmoData GetAmmoData() const {return CurrentAmmo;}
+	FAmmoData GetDefaultsWeaponData() const { return DefaultsAmmo; }
 
 protected:
 
@@ -42,7 +45,10 @@ protected:
 	float DamageAmount = 10.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Weapon")
-	FAmmoData DefaultsAmmo{ 15, 10 };
+	FAmmoData DefaultsAmmo{ 15, 15 };
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "UI")
+	FWeaponUIData UIData;
 	
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -60,6 +66,7 @@ protected:
 	bool IsAmmoEmpty();
 	bool IsClipEmpty();
 	void LogAmmo();
+	void CalculateAmmo();
 
 private:
 	FAmmoData CurrentAmmo;

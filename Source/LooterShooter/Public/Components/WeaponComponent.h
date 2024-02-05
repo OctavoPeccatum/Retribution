@@ -20,9 +20,12 @@ public:
 
 	void StartFire();
 	void StopFire();
-
 	void NextWeapon();
 	void Reload();
+
+	bool GetWeaponUIData(FWeaponUIData& UIData) const;
+	bool GetCurrentWeaponAmmoData(FAmmoData& AmmoData) const;
+	bool GetWeaponIsAnimatingNow() const { return bWeaponActionInProgress; }
 
 protected:
 
@@ -43,6 +46,8 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
+	bool bWeaponActionInProgress = false;
+
 	UPROPERTY()
 	ABaseWeapon* CurrentWeapon = nullptr;
 

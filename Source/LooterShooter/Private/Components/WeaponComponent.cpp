@@ -101,12 +101,14 @@ void UWeaponComponent::EquipWeapon(int32 WeaponIndex)
 void UWeaponComponent::StartFire()
 {
 	if (!CanFire()) return;
+	bWeaponActionInProgress = true;
 	CurrentWeapon->StartFire();
 }
 
 void UWeaponComponent::StopFire()
 {
 	if (!CurrentWeapon) return;
+	bWeaponActionInProgress = false;
 	CurrentWeapon->StopFire();
 }
 
@@ -185,6 +187,7 @@ void UWeaponComponent::OnReloadFinished(USkeletalMeshComponent* MeshComp)
 	if (!Character || Character->GetMesh() != MeshComp) return;
 
 	ReloadAnimInProgress = false;
+	bWeaponActionInProgress = false;
 }
 
 void UWeaponComponent::OnChangeWeapon(USkeletalMeshComponent* MeshComp)
@@ -223,5 +226,27 @@ void UWeaponComponent::ChangeClip()
 	CurrentWeapon->StopFire();
 	CurrentWeapon->ChangeClip();
 	ReloadAnimInProgress = true;
+	bWeaponActionInProgress = true;
 	PlayAnimMontage(CurrentReloadAnimMontage);
 }
+
+bool UWeaponComponent::GetWeaponUIData(FWeaponUIData& UIData) const
+{
+	if (CurrentWeapon)
+	{
+		UIData = CurrentWeapon->GetUIData();
+		return true;
+	}
+	return false;
+}
+
+bool UWeaponComponent::GetCurrentWeaponAmmoData(FAmmoData& AmmoData) const
+{
+	if (CurrentWeapon)
+	{
+		AmmoData = CurrentWeapon->GetAmmoData();
+		return true;
+	}
+	return false;
+}
+

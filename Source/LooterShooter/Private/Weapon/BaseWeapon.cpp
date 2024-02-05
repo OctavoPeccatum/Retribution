@@ -24,7 +24,7 @@ void ABaseWeapon::BeginPlay()
 
 	check(WeaponMesh);
 	checkf(DefaultsAmmo.Bullets > 0, TEXT("Bullets count couldn't be less or equal zero"));
-	checkf(DefaultsAmmo.Clips > 0, TEXT("Clips count couldn't be less or equal zero"));
+	checkf(DefaultsAmmo.ReservBullets > 0, TEXT("Clips count couldn't be less or equal zero"));
 	CurrentAmmo = DefaultsAmmo;
 }
 
@@ -114,7 +114,7 @@ void ABaseWeapon::DecreaseAmmo()
 
 bool ABaseWeapon::IsAmmoEmpty()
 {
-	return CurrentAmmo.Clips == 0 && IsClipEmpty();
+	return CurrentAmmo.ReservBullets == 0 && IsClipEmpty();
 }
 
 bool ABaseWeapon::IsClipEmpty()
@@ -124,25 +124,32 @@ bool ABaseWeapon::IsClipEmpty()
 
 void ABaseWeapon::ChangeClip()
 {
-	if (CurrentAmmo.Clips == 0)
+	if (CurrentAmmo.ReservBullets == 0)
 	{
 		UE_LOG(BaseWeaponLog, Warning, TEXT("No more clips!"));
 		return;
 	}
-	CurrentAmmo.Clips--;
-	CurrentAmmo.Bullets = DefaultsAmmo.Bullets;
+
+	CalculateAmmo();
 	UE_LOG(BaseWeaponLog, Display, TEXT("---------Change Clip!-----------"));
 }
 
 bool ABaseWeapon::CanReload() const
 {
-	return CurrentAmmo.Bullets < DefaultsAmmo.Bullets && CurrentAmmo.Clips > 0;
+	return CurrentAmmo.Bullets < DefaultsAmmo.Bullets && CurrentAmmo.ReservBullets > 0;
 }
 
 void ABaseWeapon::LogAmmo()
 {
 	FString AmmoInfo = "Ammo: " + FString::FromInt(CurrentAmmo.Bullets) + " / ";
-	AmmoInfo += FString::FromInt(CurrentAmmo.Clips);
+	AmmoInfo += FString::FromInt(CurrentAmmo.ReservBullets);
 	UE_LOG(BaseWeaponLog, Display, TEXT("%s"), *AmmoInfo);
+}
+
+void ABaseWeapon::CalculateAmmo()
+{
+	CurrentAmmo.ReservBullets += CurrentAmmo.Bullets;
+	CurrentAmmo.Bullets = FMath::Min(CurrentAmmo.ReservBullets, DefaultsAmmo.Bullets);
+	CurrentAmmo.ReservBullets = FMath::Max(CurrentAmmo.ReservBullets - CurrentAmmo.Bullets, 0);
 }
 

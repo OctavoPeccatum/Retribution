@@ -8,6 +8,8 @@
 
 class UQuestBase;
 class UDataTable;
+class ALooterShooterCharacter;
+class ALooterHUD;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class LOOTERSHOOTER_API UQuestGiverComponent : public UActorComponent

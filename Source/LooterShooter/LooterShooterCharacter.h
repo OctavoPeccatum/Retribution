@@ -15,6 +15,7 @@ class UInventoryComponent;
 class UQuestComponent;
 class UHealthComponent;
 class UWeaponComponent;
+class UParkourMovementComponent;
 
 USTRUCT()
 struct FInteractionData
@@ -60,10 +61,20 @@ public:
 	FORCEINLINE UInventoryComponent* GetInventory() const { return PlayerInventory; }
 	FORCEINLINE UQuestComponent* GetQuestComponent() const { return PlayerQuestComponent; }
 	FORCEINLINE ALooterHUD* GetHUD() const { return HUD; }
+	UTimelineComponent* GetTimeline() { return Timeline; }
+	UCurveFloat* GetTimelineCurve() { return TimelineCurve; }
+
 
 	void UpdateInteractionWidget() const;
 
 	void DropItem(UItemBase* ItemToDrop, const int32 QuantityToDrop);
+
+	UFUNCTION(BlueprintCallable)
+	bool CanSprinting() const;
+
+	UParkourMovementComponent* GetParkourMovementComponent() const;
+
+	bool GetCharacterIsAnimatingNow() const;
 
 protected:
 
@@ -100,6 +111,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	class UInputAction* ReloadAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	class UInputAction* SprintAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	class UInputAction* SitDownAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	class UInputAction* ToggleInventoryAction;
@@ -144,10 +161,10 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "Caharacter | Camera")
 	FVector AimingCameraLocation;
 
-	TObjectPtr<UTimelineComponent> AimingCameraTimeline;
+	UTimelineComponent* Timeline;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Caharacter | Aim Timeline")
-	UCurveFloat* AimingCameraCurve;
+	UCurveFloat* TimelineCurve;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Caharacter | Landed")
 	FVector2D LandedDamageVelocity = FVector2D(900.0f, 1200.0f);
@@ -166,7 +183,7 @@ protected:
 	UFUNCTION()
 	void UpdateCameraTimeline(const float TimelineValue) const;
 	UFUNCTION()
-	void CameraTimelineEnd();
+	void TimelineEnd();
 
 	void PerformInteractionCheck();
 	void FoundInteractable(AActor* NewInteractable);
@@ -190,7 +207,10 @@ protected:
 
 	virtual void Tick(float DeltaSeconds) override;
 
+	void SetNewLocation(FVector NewLocation);
+
 private:
+	bool IsMovingForward = false;
 
 	void OnDeath();
 	void OnHealthChanged(float Health);

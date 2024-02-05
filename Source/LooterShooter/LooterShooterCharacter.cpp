@@ -29,7 +29,7 @@ ALooterShooterCharacter::ALooterShooterCharacter(const FObjectInitializer& ObjIn
 	: Super(ObjInit.SetDefaultSubobjectClass<UParkourMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
 	// Set size for collision capsule
-	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
+	GetCapsuleComponent()->InitCapsuleSize(30.0f, 96.0f);
 		
 	// Don't rotate when the controller rotates. Let that just affect the camera.
 	bUseControllerRotationPitch = false;
@@ -68,7 +68,9 @@ ALooterShooterCharacter::ALooterShooterCharacter(const FObjectInitializer& ObjIn
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
 	FollowCamera->bUsePawnControlRotation = true; // Camera does not rotate relative to arm
 
-	AimingCameraTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("AimingCameraTimeline"));
+	Timeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("Timeline"));
+	Timeline->SetPlayRate(0.1f);
+	Timeline->SetTimelineLength(5.0f);
 	DefaultCameraLocation = FVector{ 0.0f, 60.0f, 60.0f };
 	AimingCameraLocation = FVector{ 125.0f, 50.0f, 55.0f };
 	CameraBoom->SocketOffset = DefaultCameraLocation;
@@ -86,7 +88,7 @@ void ALooterShooterCharacter::BeginPlay()
 	Super::BeginPlay();
 
 	check(HealthComponent);
-	check(GetCharacterMovement());
+	check(GetParkourMovementComponent());
 	check(WeaponComponent);
 
 	OnHealthChanged(HealthComponent->GetHealth());
@@ -106,15 +108,15 @@ void ALooterShooterCharacter::BeginPlay()
 
 	HUD = Cast<ALooterHUD>(GetWorld()->GetFirstPlayerController()->GetHUD());
 
-	FOnTimelineFloat AimLerpAlphaValue;
+	FOnTimelineFloat LerpAlphaValue;
 	FOnTimelineEvent TimelineFinishEvent;
-	AimLerpAlphaValue.BindUFunction(this, FName("UpdateCameraTimeline"));
-	TimelineFinishEvent.BindUFunction(this, FName("CameraTimelineEnd"));
+	LerpAlphaValue.BindUFunction(this, FName("UpdateCameraTimeline"));
+	TimelineFinishEvent.BindUFunction(this, FName("TimelineEnd"));
 
-	if (AimingCameraTimeline && AimingCameraCurve)
+	if (Timeline && TimelineCurve)
 	{
-		AimingCameraTimeline->AddInterpFloat(AimingCameraCurve, AimLerpAlphaValue);
-		AimingCameraTimeline->SetTimelineFinishedFunc(TimelineFinishEvent);
+		Timeline->AddInterpFloat(TimelineCurve, LerpAlphaValue);
+		Timeline->SetTimelineFinishedFunc(TimelineFinishEvent);
 	}
 }
 
@@ -137,8 +139,7 @@ void ALooterShooterCharacter::SetupPlayerInputComponent(class UInputComponent* P
 	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent)) {
 		
 		//Jumping
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, GetParkourMovementComponent(), &UParkourMovementComponent::OnOvercoming);
 
 		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &ALooterShooterCharacter::BeginInteract);
 		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Completed, this, &ALooterShooterCharacter::EndInteract);
@@ -151,6 +152,11 @@ void ALooterShooterCharacter::SetupPlayerInputComponent(class UInputComponent* P
 
 		EnhancedInputComponent->BindAction(AimingAction, ETriggerEvent::Started, this, &ALooterShooterCharacter::Aim);
 		EnhancedInputComponent->BindAction(AimingAction, ETriggerEvent::Completed, this, &ALooterShooterCharacter::StopAiming);
+
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, GetParkourMovementComponent(), &UParkourMovementComponent::OnStartSprint);
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, GetParkourMovementComponent(), &UParkourMovementComponent::OnStopSprint);
+
+		EnhancedInputComponent->BindAction(SitDownAction, ETriggerEvent::Started, GetParkourMovementComponent(), &UParkourMovementComponent::OnSitDown);
 
 		EnhancedInputComponent->BindAction(ToggleInventoryAction, ETriggerEvent::Started, this, &ALooterShooterCharacter::ToggleInventory);
 
@@ -321,9 +327,9 @@ void ALooterShooterCharacter::Aim()
 		bAiming = true;
 		GetCharacterMovement()->MaxWalkSpeed = 200.0f;
 
-		if (AimingCameraTimeline)
+		if (Timeline)
 		{
-			AimingCameraTimeline->PlayFromStart();
+			Timeline->PlayFromStart();
 		}
 
 		InteractionCheckDistance = 300.0f;
@@ -337,9 +343,9 @@ void ALooterShooterCharacter::StopAiming()
 		bAiming = false;
 		GetCharacterMovement()->MaxWalkSpeed = 350.0f;
 
-		if (AimingCameraTimeline)
+		if (Timeline)
 		{
-			AimingCameraTimeline->Reverse();
+			Timeline->Reverse();
 		}
 
 		InteractionCheckDistance = 450.0f;
@@ -348,19 +354,23 @@ void ALooterShooterCharacter::StopAiming()
 
 void ALooterShooterCharacter::UpdateCameraTimeline(const float TimelineValue) const
 {
-	const FVector CameraLocation = FMath::Lerp(DefaultCameraLocation, AimingCameraLocation, TimelineValue);
-	CameraBoom->SocketOffset = CameraLocation;
+	if (GetParkourMovementComponent()->GetMovementState() == EMovementState::Action)
+	{
+		GetParkourMovementComponent()->MantleUpdate(TimelineValue);
+	}
+	else
+	{
+		const FVector CameraLocation = FMath::Lerp(DefaultCameraLocation, AimingCameraLocation, TimelineValue);
+		CameraBoom->SocketOffset = CameraLocation;
+	}	
 }
 
-void ALooterShooterCharacter::CameraTimelineEnd()
+void ALooterShooterCharacter::TimelineEnd()
 {
-	if (AimingCameraTimeline)
-	{
-		if(AimingCameraTimeline->GetPlaybackPosition() != 0.0f)
+		if (GetParkourMovementComponent()->GetMovementState() == EMovementState::Action)
 		{
-			//HU->DisplayCrosshair();
+			GetParkourMovementComponent()->MantleEnd();
 		}
-	}
 }
 
 void ALooterShooterCharacter::DropItem(UItemBase* ItemToDrop, const int32 QuantityToDrop)
@@ -403,7 +413,7 @@ void ALooterShooterCharacter::Move(const FInputActionValue& Value)
 	
 		// get right vector 
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
-
+		IsMovingForward = MovementVector.Y > 0.0f;
 		// add movement 
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
@@ -450,6 +460,23 @@ void ALooterShooterCharacter::OnGroundLanded(const FHitResult& Hit)
 	UE_LOG(CharacterLog, Display, TEXT("FinalDamage: %f"), FinalDamage);
 	TakeDamage(FinalDamage, FDamageEvent{}, nullptr, nullptr);
 }
+
+bool ALooterShooterCharacter::CanSprinting() const
+{
+	return IsMovingForward && !GetVelocity().IsZero() && !WeaponComponent->GetWeaponIsAnimatingNow();
+}
+
+UParkourMovementComponent* ALooterShooterCharacter::GetParkourMovementComponent() const
+{
+	const auto MovementComponent = Cast<UParkourMovementComponent>(GetCharacterMovement());
+	return MovementComponent;
+}
+
+bool ALooterShooterCharacter::GetCharacterIsAnimatingNow() const
+{
+	return WeaponComponent->GetWeaponIsAnimatingNow() || GetParkourMovementComponent()->GetMovementState() == EMovementState::Action;
+}
+
 
 
 
