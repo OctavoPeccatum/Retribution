@@ -29,7 +29,7 @@ ALooterShooterCharacter::ALooterShooterCharacter(const FObjectInitializer& ObjIn
 	: Super(ObjInit.SetDefaultSubobjectClass<UParkourMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
 	// Set size for collision capsule
-	GetCapsuleComponent()->InitCapsuleSize(30.0f, 96.0f);
+	GetCapsuleComponent()->InitCapsuleSize(30.0f, 90.0f);
 		
 	// Don't rotate when the controller rotates. Let that just affect the camera.
 	bUseControllerRotationPitch = false;
@@ -49,10 +49,10 @@ ALooterShooterCharacter::ALooterShooterCharacter(const FObjectInitializer& ObjIn
 	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
 
 	// Create a camera boom (pulls in towards the player if there is a collision)
-	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
-	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 150.0f; // The camera follows at this distance behind the character	
-	CameraBoom->bUsePawnControlRotation = true; // Rotate the arm based on the controller
+	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
+	SpringArmComponent->SetupAttachment(RootComponent);
+	SpringArmComponent->TargetArmLength = 150.0f; // The camera follows at this distance behind the character	
+	SpringArmComponent->bUsePawnControlRotation = true; // Rotate the arm based on the controller
 
 	HealthComponent = CreateDefaultSubobject<UHealthComponent>("HealthComponent");
 	WeaponComponent = CreateDefaultSubobject<UWeaponComponent>("WeaponComponent");
@@ -65,15 +65,15 @@ ALooterShooterCharacter::ALooterShooterCharacter(const FObjectInitializer& ObjIn
 
 	// Create a follow camera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
+	FollowCamera->SetupAttachment(SpringArmComponent, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
 	FollowCamera->bUsePawnControlRotation = true; // Camera does not rotate relative to arm
 
 	Timeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("Timeline"));
-	Timeline->SetPlayRate(0.1f);
+	Timeline->SetPlayRate(1.0f);
 	Timeline->SetTimelineLength(5.0f);
-	DefaultCameraLocation = FVector{ 0.0f, 60.0f, 60.0f };
-	AimingCameraLocation = FVector{ 125.0f, 50.0f, 55.0f };
-	CameraBoom->SocketOffset = DefaultCameraLocation;
+	DefaultCameraLocation = FVector{ 0.0f, 60.0f, 0.0f };
+	AimingCameraLocation = FVector{ 105.0f, 30.0f, 0.0f };
+	SpringArmComponent->SocketOffset = DefaultCameraLocation;
 
 	InteractionCheckFrequency = 0.1f;
 	InteractionCheckDistance = 450.0f;
@@ -87,6 +87,7 @@ void ALooterShooterCharacter::BeginPlay()
 	// Call the base class  
 	Super::BeginPlay();
 
+	check(SpringArmComponent);
 	check(HealthComponent);
 	check(GetParkourMovementComponent());
 	check(WeaponComponent);
@@ -154,6 +155,7 @@ void ALooterShooterCharacter::SetupPlayerInputComponent(class UInputComponent* P
 		EnhancedInputComponent->BindAction(AimingAction, ETriggerEvent::Completed, this, &ALooterShooterCharacter::StopAiming);
 
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, GetParkourMovementComponent(), &UParkourMovementComponent::OnStartSprint);
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Triggered, GetParkourMovementComponent(), &UParkourMovementComponent::OnOngoingSprint);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, GetParkourMovementComponent(), &UParkourMovementComponent::OnStopSprint);
 
 		EnhancedInputComponent->BindAction(SitDownAction, ETriggerEvent::Started, GetParkourMovementComponent(), &UParkourMovementComponent::OnSitDown);
@@ -329,6 +331,7 @@ void ALooterShooterCharacter::Aim()
 
 		if (Timeline)
 		{
+			Timeline->SetTimelineLength(0.2f);
 			Timeline->PlayFromStart();
 		}
 
@@ -345,6 +348,7 @@ void ALooterShooterCharacter::StopAiming()
 
 		if (Timeline)
 		{
+			Timeline->SetTimelineLength(0.2f);
 			Timeline->Reverse();
 		}
 
@@ -357,11 +361,12 @@ void ALooterShooterCharacter::UpdateCameraTimeline(const float TimelineValue) co
 	if (GetParkourMovementComponent()->GetMovementState() == EMovementState::Action)
 	{
 		GetParkourMovementComponent()->MantleUpdate(TimelineValue);
+		WeaponComponent->StopFire();
 	}
 	else
 	{
 		const FVector CameraLocation = FMath::Lerp(DefaultCameraLocation, AimingCameraLocation, TimelineValue);
-		CameraBoom->SocketOffset = CameraLocation;
+		SpringArmComponent->SocketOffset = CameraLocation;
 	}	
 }
 
@@ -410,7 +415,6 @@ void ALooterShooterCharacter::Move(const FInputActionValue& Value)
 
 		// get forward vector
 		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-	
 		// get right vector 
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 		IsMovingForward = MovementVector.Y > 0.0f;

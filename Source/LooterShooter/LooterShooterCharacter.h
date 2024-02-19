@@ -52,17 +52,18 @@ public:
 	ALooterShooterCharacter(const FObjectInitializer& ObjInit);
 	
 	/** Returns CameraBoom subobject **/
-	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
+	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return SpringArmComponent; }
 	/** Returns FollowCamera subobject **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 
 	FORCEINLINE bool IsInteracting() const { return GetWorldTimerManager().IsTimerActive(TimerHandle_Interaction); }
+	FORCEINLINE bool IsAimming() const { return bAiming; }
 
 	FORCEINLINE UInventoryComponent* GetInventory() const { return PlayerInventory; }
 	FORCEINLINE UQuestComponent* GetQuestComponent() const { return PlayerQuestComponent; }
 	FORCEINLINE ALooterHUD* GetHUD() const { return HUD; }
-	UTimelineComponent* GetTimeline() { return Timeline; }
-	UCurveFloat* GetTimelineCurve() { return TimelineCurve; }
+	FORCEINLINE UTimelineComponent* GetTimeline() { return Timeline; }
+	FORCEINLINE UCurveFloat* GetTimelineCurve() { return TimelineCurve; }
 
 
 	void UpdateInteractionWidget() const;
@@ -86,7 +87,7 @@ protected:
 
 	/** Camera boom positioning the camera behind the character */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
-	class USpringArmComponent* CameraBoom;
+	class USpringArmComponent* SpringArmComponent;
 
 	/** Follow camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
@@ -158,6 +159,7 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "Caharacter | Camera")
 	FVector DefaultCameraLocation;
+
 	UPROPERTY(VisibleAnywhere, Category = "Caharacter | Camera")
 	FVector AimingCameraLocation;
 
@@ -206,8 +208,6 @@ protected:
 	virtual void BeginPlay();
 
 	virtual void Tick(float DeltaSeconds) override;
-
-	void SetNewLocation(FVector NewLocation);
 
 private:
 	bool IsMovingForward = false;

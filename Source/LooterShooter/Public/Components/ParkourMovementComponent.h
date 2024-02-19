@@ -38,17 +38,25 @@ public:
 	EMovementState GetMovementState() const { return MovementState; }
 
 	void OnStartSprint();
+	void OnOngoingSprint();
 	void OnStopSprint();
 	void OnOvercoming();
 	void MantleUpdate(const float TimelineValue);
 	void MantleEnd();
 
 protected:
+
 	UPROPERTY(EditDefaultsOnly, Category = "Animation")
 	UAnimMontage* LowMantleAnimMontage;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Animation")
 	UAnimMontage* HighMantleAnimMontage;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UAnimMontage* VaultAnimMontage;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UAnimMontage* RollAnimMontage;
 
 	UPROPERTY(EditDefaultsOnly, Category = "MantleTrace")
 	FTraceSettings TraceSetings;
@@ -62,6 +70,8 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "MantleCurve")
 	UCurveVector* CorrectionCurve2m;
 
+	virtual void BeginPlay() override;
+
 	void SetMovementState(EMovementState NewMovementState);
 
 	void StartCrouch();
@@ -70,13 +80,10 @@ protected:
 	void StartSprint();
 	void StopSrint();
 
-	bool GetTraceData(FVector& TraceLocation, FVector& TraceEnd, FCollisionShape& CharacterCapsule) const;
-	void MakeTrace(FHitResult& HitResult, const FVector& TraceStart, const FVector& TraceEnd, FCollisionShape& CharacterCapsule);
-	void HeightFinder();
-
-	void MantleCheck();
+	bool MantleCheck();
 	bool TraceForward(FVector& InitialTraceImpactPoint, FVector& InitialTraceNormal);
 	bool TraceDownward(FVector InitialTraceImpactPoint, FVector InitialTraceNormal, FVector& DownTraceLocation, TWeakObjectPtr<UPrimitiveComponent>& HitComponent);
+	void TraceInTheDistance(FVector InitialTraceImpactPoint, FVector InitialTraceNormal, FVector& DownTraceLocationInTheDistance);
 	bool CapsuleHasRoomToStand(FTransform& TargetTransform, float& MantleHeight, FVector DownTraceLocation, FVector InitialTraceNormal);
 	bool CapsuleHasRoomToCheck(FVector DownTraceLocation, UCapsuleComponent* Capsule);
 	FVector GetCapsuleLocationFromBase(FVector DownTraceLocation);
@@ -93,7 +100,6 @@ private:
 	FMantleLedgeLS MantleLedgeLS;
 	FTransform MantleAnimatedStartOffset, MantleActualStartOffset;
 
-	void PlayAnimMontage(UAnimMontage* Animation);
 	ALooterShooterCharacter* GetCharacter() const;
 	EMantleType	DetermineMantleType(float MantleHeight);
 	FMantleAsset DetermineMantleAsset(EMantleType MantleType);
@@ -107,7 +113,11 @@ private:
 	void PlayAnimMontageIfValid();
 	void UpdatePositionAndCorrectionAlpha(float& PositionAlpha, float& XYCorrectionAlpha, float& ZCorrectionAlpha);
 	FTransform CalculateLarpedTarget(FTransform MantleTargetTransform, float PositionAlpha, float XYCorrectionAlpha, float ZCorrectionAlpha, const float TimelineValue);
-	FTransform BlendIntoTheAnimatedHorizontal(float XYCorrectionAlpha);
-	FTransform BlendIntoTheAnimatedVertical(float ZCorrectionAlpha);
+	FTransform BlendIntoTheAnimatedHorizontal(float XYCorrectionAlpha) const;
+	FTransform BlendIntoTheAnimatedVertical(float ZCorrectionAlpha) const;
 	FTransform TransformPlusTransform(FTransform TransformA, FTransform TransformB);
+	void DoRoll();
+	void InitAnimations();
+	void OnActionStart(USkeletalMeshComponent* MeshComp, bool bNeedCollisionDisable);
+	void OnActionEnd(USkeletalMeshComponent* MeshComp, bool bNeedCollisionDisable);
 };

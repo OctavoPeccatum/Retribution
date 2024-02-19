@@ -3,12 +3,14 @@
 
 #include "Components/ParkourMovementComponent.h"
 #include "Engine/World.h"
+#include "GameFramework/Character.h"
 #include "LooterShooter/LooterShooterCharacter.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/TimelineComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Animations/AnimUtils.h"
 #include "Animations/SetNewLocationToMantleAnimNotify.h"
+#include "Animations/MovementActionAnimNotifyState.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Engine/Private/KismetTraceUtils.h"
@@ -59,16 +61,37 @@ void UParkourMovementComponent::OnSitDown()
 void UParkourMovementComponent::StartCrouch()
 {
    SetMovementState(EMovementState::Crouch);
+   bWantsToCrouch = true;
 }
 
 void UParkourMovementComponent::StopCrouch()
 {
     SetMovementState(EMovementState::Idle);
+    bWantsToCrouch = false;
 }
 
 void UParkourMovementComponent::OnStartSprint()
 {
-    StartSprint();
+    if (!GetCharacter()->CanSprinting()) return;
+
+    switch (MovementState)
+    {
+    case EMovementState::Crouch:
+        StopCrouch();
+        StartSprint();
+        break;
+    case EMovementState::Action:
+        break;
+    default:
+        StartSprint();
+        break;
+    }
+}
+
+void UParkourMovementComponent::OnOngoingSprint()
+{
+    if (GetCharacter()->CanSprinting()) return;
+    StopSrint();
 }
 
 void UParkourMovementComponent::OnStopSprint()
@@ -78,7 +101,8 @@ void UParkourMovementComponent::OnStopSprint()
 
 void UParkourMovementComponent::OnOvercoming()
 {
-    MantleCheck();
+    if (MantleCheck()) return;
+    DoRoll();
 }
 
 void UParkourMovementComponent::StartSprint()
@@ -94,61 +118,43 @@ void UParkourMovementComponent::StopSrint()
     }
 }
 
-void UParkourMovementComponent::HeightFinder()
+bool UParkourMovementComponent::MantleCheck()
 {
-    if (!GetWorld() || !GetCharacter() || GetCharacter()->GetCharacterIsAnimatingNow()) return;
-
-    FVector TraceStart, TraceEnd;
-    FQuat TraceRotation;
-    FCollisionShape CharacterCapsule;
-    if (!GetTraceData(TraceStart, TraceEnd, CharacterCapsule)) return;
-
-    FHitResult HitResult;
-    MakeTrace(HitResult, TraceStart, TraceEnd, CharacterCapsule);
-
-    if (HitResult.bBlockingHit)
-    {
-        float MantleHeight = HitResult.Distance;
-        if (MantleHeight >= 10.0f && MantleHeight <= 100.0f)
-        {
-            PlayAnimMontage(HighMantleAnimMontage);
-        }
-        else if (MantleHeight > 100.0f && MantleHeight < 130.0f)
-        {
-            PlayAnimMontage(LowMantleAnimMontage);
-        }
-        else
-        {
-
-        }
-    }
-}
-
-void UParkourMovementComponent::MantleCheck()
-{
-    if (!GetWorld()) return;
+    if (!GetWorld()) return false;
 
     FVector InitialTraceImpactPoint, InitialTraceNormal;
-    if (!TraceForward(InitialTraceImpactPoint, InitialTraceNormal)) return;
+    if (!TraceForward(InitialTraceImpactPoint, InitialTraceNormal)) return false;
 
     FVector DownTraceLocation;
     TWeakObjectPtr<UPrimitiveComponent> HitComponent;
-    if(!TraceDownward(InitialTraceImpactPoint, InitialTraceNormal, DownTraceLocation, HitComponent)) return;
+    if(!TraceDownward(InitialTraceImpactPoint, InitialTraceNormal, DownTraceLocation, HitComponent)) return false;
+
+    FVector DownTraceLocationInTheDistance;
+    TraceInTheDistance(InitialTraceImpactPoint, InitialTraceNormal, DownTraceLocationInTheDistance);
+    bool bIsShortObstacle = DownTraceLocation.Z - 10.0f >= DownTraceLocationInTheDistance.Z;
+
+    if (bIsShortObstacle)
+    {
+        GetCharacter()->GetMesh()->GetAnimInstance()->Montage_Play(VaultAnimMontage);
+        return true;
+    }
 
     FTransform TargetTransform;
     float MantleHeight;
-    if (!CapsuleHasRoomToStand(TargetTransform, MantleHeight, DownTraceLocation, InitialTraceNormal)) return;
+    if (!CapsuleHasRoomToStand(TargetTransform, MantleHeight, DownTraceLocation, InitialTraceNormal)) return false;
 
     EMantleType MantleType = DetermineMantleType(MantleHeight);
     MantleLedgeLS.MantleLedgeLSTransform = TargetTransform * HitComponent->GetComponentToWorld().Inverse();
     MantleLedgeLS.HitComponentLS = HitComponent;
     MantleStart(MantleHeight, TargetTransform, HitComponent, MantleType);
+
+    return true;
 }
 
 bool UParkourMovementComponent::TraceForward(FVector& InitialTraceImpactPoint, FVector& InitialTraceNormal)
 {
-    FVector TraceStart = FVector(GetCapsuleBaseLocation() + (GetCharacter()->GetLastMovementInputVector() * ( - 30.0f))) + FVector(0.0f, 0.0f, (TraceSetings.MaxLedgeHeight + TraceSetings.MinLedgeHeight) / 2);
-    FVector TraceEnd = TraceStart + (GetCharacter()->GetLastMovementInputVector() * TraceSetings.ReachDistance);
+    FVector TraceStart = FVector(GetCapsuleBaseLocation() + (GetCharacter()->GetActorForwardVector() * ( - 30.0f))) + FVector(0.0f, 0.0f, (TraceSetings.MaxLedgeHeight + TraceSetings.MinLedgeHeight) / 2);
+    FVector TraceEnd = TraceStart + (GetCharacter()->GetActorForwardVector() * TraceSetings.ReachDistance);
     float HalfHeight = ((TraceSetings.MaxLedgeHeight + TraceSetings.MinLedgeHeight) / 2) + 1;
 
     FHitResult HitResult;
@@ -160,23 +166,17 @@ bool UParkourMovementComponent::TraceForward(FVector& InitialTraceImpactPoint, F
     DrawDebugCapsuleTraceSingle(GetWorld(), TraceStart, TraceEnd, TraceSetings.ForwardTraceRadius, HalfHeight, EDrawDebugTrace::ForDuration, HitResult.bBlockingHit, HitResult, FLinearColor::Red, FLinearColor::Green, 3.0f);
 #endif
 
-    DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Red, false, 3.0f, 0, 3.0f);
     InitialTraceImpactPoint = HitResult.ImpactPoint;
     InitialTraceNormal = HitResult.ImpactNormal;
-
-    UE_LOG(MovementLog, Display, TEXT("%s"), (HitResult.bBlockingHit ? TEXT("True") : TEXT("False")));
-    if (HitResult.bBlockingHit)
-    {
-        UE_LOG(MovementLog, Display, TEXT("%s"), *HitResult.GetActor()->GetName());
-    }
    
     return HitResult.bBlockingHit && !IsWalkable(HitResult);
 }
 
 bool UParkourMovementComponent::TraceDownward(FVector InitialTraceImpactPoint, FVector InitialTraceNormal, FVector& DownTraceLocation, TWeakObjectPtr<UPrimitiveComponent>& HitComponent)
 {
+    float StartHeight = TraceSetings.MaxLedgeHeight;
     FVector TraceEnd = (FVector(InitialTraceImpactPoint.X, InitialTraceImpactPoint.Y, GetCapsuleBaseLocation().Z) + (InitialTraceNormal * (-15.0f)));
-    FVector TraceStart = TraceEnd + FVector(0.0f, 0.0f, TraceSetings.MaxLedgeHeight + TraceSetings.DonwardTraceRadius );
+    FVector TraceStart = TraceEnd + FVector(0.0f, 0.0f, StartHeight);
 
     FHitResult HitResult;
     FCollisionQueryParams CollisionQueryParam;
@@ -191,6 +191,24 @@ bool UParkourMovementComponent::TraceDownward(FVector InitialTraceImpactPoint, F
     HitComponent = HitResult.GetComponent();
 
     return HitResult.bBlockingHit && IsWalkable(HitResult);
+}
+
+void UParkourMovementComponent::TraceInTheDistance(FVector InitialTraceImpactPoint, FVector InitialTraceNormal, FVector& DownTraceLocationInTheDistance)
+{
+    float StartHeight = TraceSetings.MaxLedgeHeight;
+    FVector TraceEnd = (FVector(InitialTraceImpactPoint.X + ((GetCharacter()->GetLastMovementInputVector() * TraceSetings.ReachDistance)).X, InitialTraceImpactPoint.Y + ((GetCharacter()->GetLastMovementInputVector() * TraceSetings.ReachDistance)).Y, GetCapsuleBaseLocation().Z) + (InitialTraceNormal * (-15.0f)));
+    FVector TraceStart = TraceEnd + FVector(0.0f, 0.0f, StartHeight);
+
+    FHitResult HitResult;
+    FCollisionQueryParams CollisionQueryParam;
+    CollisionQueryParam.AddIgnoredActor(GetCharacter());
+    GetWorld()->SweepSingleByChannel(HitResult, TraceStart, TraceEnd, FQuat::Identity, ECollisionChannel::COLLISION_CLIMBABLE, FCollisionShape::MakeSphere(TraceSetings.DonwardTraceRadius), CollisionQueryParam);
+
+#if ENABLE_DRAW_DEBUG
+    DrawDebugSphereTraceSingle(GetWorld(), TraceStart, TraceEnd, TraceSetings.ForwardTraceRadius, EDrawDebugTrace::ForDuration, HitResult.bBlockingHit, HitResult, FLinearColor::Yellow, FLinearColor::White, 3.0f);
+#endif
+
+    DownTraceLocationInTheDistance = FVector(HitResult.Location.X, HitResult.Location.Y, HitResult.ImpactPoint.Z);
 }
 
 bool UParkourMovementComponent::CapsuleHasRoomToStand(FTransform& TargetTransform, float& MantleHeight, FVector DownTraceLocation, FVector InitialTraceNormal)
@@ -261,39 +279,6 @@ void UParkourMovementComponent::MantleEnd()
     UE_LOG(MovementLog, Display, TEXT("Mantle End"));
     SetMovementMode(EMovementMode::MOVE_Walking);
     MovementState = EMovementState::Idle;
-}
-
-bool UParkourMovementComponent::GetTraceData(FVector& TraceStart, FVector& TraceEnd, FCollisionShape& CharacterCapsule) const
-{
-    if (!GetCharacter()) return false;
-    
-    CharacterCapsule = FCollisionShape::MakeCapsule(GetCharacter()->GetCapsuleComponent()->GetScaledCapsuleRadius(), GetCharacter()->GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
-    TraceEnd = FVector(GetCharacter()->GetActorLocation().X, GetCharacter()->GetActorLocation().Y, GetCharacter()->GetActorLocation().Z - GetCharacter()->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 10.0f) +(GetCharacter()->GetActorForwardVector() * TraceRange);
-    TraceStart = FVector(TraceEnd.X, TraceEnd.Y, TraceEnd.Z + TraceHeight);
-    return true;
-}
-
-void UParkourMovementComponent::MakeTrace(FHitResult& HitResult, const FVector& TraceStart, const FVector& TraceEnd, FCollisionShape& CharacterCapsule)
-{
-    FCollisionQueryParams CollisionParam;
-    CollisionParam.AddIgnoredActor(GetOwner());
-    /*GetWorld()->SweepSingleByChannel(HitResult,
-        TraceStart, 
-        TraceEnd, 
-        FQuat::Identity, 
-        ECollisionChannel::ECC_Visibility, 
-        CharacterCapsule, 
-        CollisionParam, 
-        FCollisionResponseParams::DefaultResponseParam);
-    */
-    GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECollisionChannel::ECC_Visibility, CollisionParam);
-    DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Red, false, 3.0f, 0, 3.0f);
-}
-
-void UParkourMovementComponent::PlayAnimMontage(UAnimMontage* Animation)
-{
-    if(!GetCharacter()) return;
-    GetCharacter()->PlayAnimMontage(Animation);
 }
 
 ALooterShooterCharacter* UParkourMovementComponent::GetCharacter() const
@@ -430,7 +415,7 @@ FTransform UParkourMovementComponent::CalculateLarpedTarget(FTransform MantleTar
     return Result;
 }
 
-FTransform UParkourMovementComponent::BlendIntoTheAnimatedHorizontal(float XYCorrectionAlpha)
+FTransform UParkourMovementComponent::BlendIntoTheAnimatedHorizontal(float XYCorrectionAlpha) const
 {
     FTransform Result;
     Result.Blend(MantleActualStartOffset,
@@ -441,7 +426,7 @@ FTransform UParkourMovementComponent::BlendIntoTheAnimatedHorizontal(float XYCor
     return Result;
 }
 
-FTransform UParkourMovementComponent::BlendIntoTheAnimatedVertical(float ZCorrectionAlpha)
+FTransform UParkourMovementComponent::BlendIntoTheAnimatedVertical(float ZCorrectionAlpha) const
 {
     FTransform Result;
     Result.Blend(MantleActualStartOffset,
@@ -459,6 +444,96 @@ FTransform UParkourMovementComponent::TransformPlusTransform(FTransform Transfor
         TransformA.Rotator().Yaw + TransformB.Rotator().Yaw),
         TransformA.GetLocation() + TransformB.GetLocation(),
         TransformA.GetScale3D() + TransformB.GetScale3D());
+}
+
+void UParkourMovementComponent::DoRoll()
+{
+    if (!RollAnimMontage) return;
+    GetCharacter()->GetMesh()->GetAnimInstance()->Montage_Play(RollAnimMontage);
+}
+
+void UParkourMovementComponent::InitAnimations()
+{
+    auto MovementActionStateNotifyRoll = AnimUtils::FindNotifyStateByClass<UMovementActionAnimNotifyState>(RollAnimMontage);
+    if (MovementActionStateNotifyRoll)
+    {
+        MovementActionStateNotifyRoll->OnNotifiedStart.AddUObject(this, &UParkourMovementComponent::OnActionStart);
+        MovementActionStateNotifyRoll->OnNotifiedEnd.AddUObject(this, &UParkourMovementComponent::OnActionEnd);
+    }
+    else
+    {
+        UE_LOG(MovementLog, Error, TEXT("Roll anim notify state is forgotten to set!"));
+        checkNoEntry();
+    }
+    
+    auto MovementActionStateNotifyLowMantle = AnimUtils::FindNotifyStateByClass<UMovementActionAnimNotifyState>(LowMantleAnimMontage);
+    if (MovementActionStateNotifyLowMantle)
+    {
+        MovementActionStateNotifyLowMantle->OnNotifiedStart.AddUObject(this, &UParkourMovementComponent::OnActionStart);
+        MovementActionStateNotifyLowMantle->OnNotifiedEnd.AddUObject(this, &UParkourMovementComponent::OnActionEnd);
+    }
+    else
+    {
+        UE_LOG(MovementLog, Error, TEXT("LowMantle anim notify state is forgotten to set!"));
+        checkNoEntry();
+    }
+
+    auto MovementActionStateNotifyHighMantle = AnimUtils::FindNotifyStateByClass<UMovementActionAnimNotifyState>(HighMantleAnimMontage);
+    if (MovementActionStateNotifyHighMantle)
+    {
+        MovementActionStateNotifyHighMantle->OnNotifiedStart.AddUObject(this, &UParkourMovementComponent::OnActionStart);
+        MovementActionStateNotifyHighMantle->OnNotifiedEnd.AddUObject(this, &UParkourMovementComponent::OnActionEnd);
+    }
+    else
+    {
+        UE_LOG(MovementLog, Error, TEXT("HighMantle anim notify state is forgotten to set!"));
+        checkNoEntry();
+    }
+
+    auto MovementActionStateNotifyVault = AnimUtils::FindNotifyStateByClass<UMovementActionAnimNotifyState>(VaultAnimMontage);
+    if (MovementActionStateNotifyVault)
+    {
+        MovementActionStateNotifyVault->OnNotifiedStart.AddUObject(this, &UParkourMovementComponent::OnActionStart);
+        MovementActionStateNotifyVault->OnNotifiedEnd.AddUObject(this, &UParkourMovementComponent::OnActionEnd);
+    }
+    else
+    {
+        UE_LOG(MovementLog, Error, TEXT("HighMantle anim notify state is forgotten to set!"));
+        checkNoEntry();
+    }
+}
+
+void UParkourMovementComponent::OnActionStart(USkeletalMeshComponent* MeshComp, bool bNeedCollisionDisable)
+{
+    ACharacter* Character = Cast<ACharacter>(GetOwner());
+    if (!Character || Character->GetMesh() != MeshComp) return;
+
+    if (bNeedCollisionDisable)
+    {
+        SetMovementMode(EMovementMode::MOVE_Flying);
+        Character->GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    }
+    
+    Character->DisableInput(Character->GetLocalViewingPlayerController());
+}
+
+void UParkourMovementComponent::OnActionEnd(USkeletalMeshComponent* MeshComp, bool bNeedCollisionDisable)
+{
+    ACharacter* Character = Cast<ACharacter>(GetOwner());
+    if (!Character || Character->GetMesh() != MeshComp) return;
+
+    if (bNeedCollisionDisable)
+    {
+        SetMovementMode(EMovementMode::MOVE_Walking);
+        Character->GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+    }
+
+    Character->EnableInput(Character->GetLocalViewingPlayerController());
+}
+
+void UParkourMovementComponent::BeginPlay()
+{
+    InitAnimations();
 }
 
 void UParkourMovementComponent::SetMovementState(EMovementState NewMovementState)

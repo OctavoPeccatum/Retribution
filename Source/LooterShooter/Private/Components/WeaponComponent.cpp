@@ -8,6 +8,7 @@
 #include "Animations/ReloadFinishedAnimNotify.h"
 #include "Animations/ChangeWeaponAnimNotify.h"
 #include "Animations/AnimUtils.h"
+#include "LooterShooter/LooterShooterCharacter.h"
 
 DEFINE_LOG_CATEGORY_STATIC(WeaponComponentLog, All, All);
 
@@ -100,7 +101,9 @@ void UWeaponComponent::EquipWeapon(int32 WeaponIndex)
 
 void UWeaponComponent::StartFire()
 {
-	if (!CanFire()) return;
+	ALooterShooterCharacter* Character = Cast<ALooterShooterCharacter>(GetOwner());
+
+	if (!Character || !CanFire() || !Character->IsAimming()) return;
 	bWeaponActionInProgress = true;
 	CurrentWeapon->StartFire();
 }
@@ -201,7 +204,9 @@ void UWeaponComponent::OnChangeWeapon(USkeletalMeshComponent* MeshComp)
 
 bool UWeaponComponent::CanFire() const
 {
-	return CurrentWeapon && !EquipAnimInProgress && !ReloadAnimInProgress;
+	ALooterShooterCharacter* Character = Cast<ALooterShooterCharacter>(GetOwner());
+
+	return CurrentWeapon && !EquipAnimInProgress && !ReloadAnimInProgress && Character && !Character->GetCharacterIsAnimatingNow();
 }
 
 bool UWeaponComponent::CanReload() const

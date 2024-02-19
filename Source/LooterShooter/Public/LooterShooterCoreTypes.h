@@ -66,9 +66,10 @@ enum class EMovementState : uint8
 UENUM(BlueprintType)
 enum class EMantleType : uint8
 {
-	HighMantle		UMETA(DisplayName = "Idle"),
-	LowMantle		UMETA(DisplayName = "Crouch"),
-	FallingCatch	UMETA(DisplayName = "Running")
+	HighMantle		UMETA(DisplayName = "HighMantle"),
+	LowMantle		UMETA(DisplayName = "LowMantle"),
+	FallingCatch	UMETA(DisplayName = "FallingCatch"),
+	WindowObstacle	UMETA(DisplayName = "WindowObstacle")
 };
 
 USTRUCT(BlueprintType)
